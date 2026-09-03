@@ -1,0 +1,11 @@
+com\example\chatapp\service\MessageServiceTest.class
+com\example\chatapp\controller\ViewControllerTest.class
+com\example\chatapp\service\UserServiceTest.class
+com\example\chatapp\websocket\WebSocketControllerTest.class
+com\example\chatapp\integration\ChatIntegrationTest.class
+com\example\chatapp\service\PresenceServiceTest.class
+com\example\chatapp\controller\MessageControllerTest.class
+com\example\chatapp\service\RoomServiceTest.class
+com\example\chatapp\ChatApplicationTests.class
+com\example\chatapp\controller\RoomControllerTest.class
+com\example\chatapp\controller\UserControllerTest.class
