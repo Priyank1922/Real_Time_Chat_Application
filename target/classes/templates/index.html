@@ -1,278 +1,324 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Real-Time Collaborative Communication Platform with multi-session presence, message priority, and context-based rooms.">
-    <title>Real-Time Collaborative Communication Platform</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description"
+	content="Real-Time Collaborative Communication Platform with multi-session presence, message priority, and context-based rooms.">
+<title>Real-Time Collaborative Communication Platform</title>
 
-    <!-- CSS Design System -->
-    <link rel="stylesheet" th:href="@{/css/style.css}">
+<!-- CSS Design System -->
+<link rel="stylesheet" th:href="@{/css/style.css}">
 
-    <!-- STOMP & SockJS CDNs -->
-    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+<!-- STOMP & SockJS CDNs -->
+<script
+	src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script
+	src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
 </head>
 <body>
 
-    <!-- Top Navigation Bar -->
-    <header class="top-navbar" id="topNavbar">
-        <div class="brand-section">
-            <div class="brand-logo" id="brandLogo">
-                <svg viewBox="0 0 24 24">
-                    <path d="M12 2C6.48 2 2 6.48 2 12c0 1.82.49 3.53 1.35 5L2 22l5.21-1.31C8.61 21.49 10.26 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18c-1.57 0-3.05-.44-4.32-1.21l-.31-.19-3.21.81.85-3.12-.2-.32C3.96 14.67 3.5 13.38 3.5 12 3.5 7.31 7.31 3.5 12 3.5S20.5 7.31 20.5 12 16.69 20 12 20zm5.1-7.25c-.28-.14-1.65-.81-1.9-.9-.26-.1-.45-.14-.64.14-.19.28-.73.9-.9 1.09-.16.19-.33.21-.61.07-.28-.14-1.18-.44-2.25-1.39-.83-.74-1.4-1.66-1.56-1.94-.16-.28-.02-.43.12-.57.13-.13.28-.33.42-.5.14-.16.19-.28.28-.47.1-.19.05-.35-.02-.5-.07-.14-.64-1.55-.88-2.12-.23-.56-.47-.48-.64-.49-.17-.01-.36-.01-.56-.01-.19 0-.5.07-.76.35-.26.28-1 1-1 2.43 0 1.44 1.05 2.82 1.2 3.01.14.19 2.06 3.15 5 4.42.7.3 1.25.48 1.68.62.71.23 1.35.2 1.86.12.57-.08 1.65-.67 1.88-1.32.23-.65.23-1.21.16-1.32-.07-.11-.26-.18-.54-.32z"/>
+	<!-- Top Navigation Bar -->
+	<header class="top-navbar" id="topNavbar">
+		<div class="brand-section">
+			<div class="brand-logo" id="brandLogo">
+				<svg viewBox="0 0 24 24">
+                    <path
+						d="M12 2C6.48 2 2 6.48 2 12c0 1.82.49 3.53 1.35 5L2 22l5.21-1.31C8.61 21.49 10.26 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18c-1.57 0-3.05-.44-4.32-1.21l-.31-.19-3.21.81.85-3.12-.2-.32C3.96 14.67 3.5 13.38 3.5 12 3.5 7.31 7.31 3.5 12 3.5S20.5 7.31 20.5 12 16.69 20 12 20zm5.1-7.25c-.28-.14-1.65-.81-1.9-.9-.26-.1-.45-.14-.64.14-.19.28-.73.9-.9 1.09-.16.19-.33.21-.61.07-.28-.14-1.18-.44-2.25-1.39-.83-.74-1.4-1.66-1.56-1.94-.16-.28-.02-.43.12-.57.13-.13.28-.33.42-.5.14-.16.19-.28.28-.47.1-.19.05-.35-.02-.5-.07-.14-.64-1.55-.88-2.12-.23-.56-.47-.48-.64-.49-.17-.01-.36-.01-.56-.01-.19 0-.5.07-.76.35-.26.28-1 1-1 2.43 0 1.44 1.05 2.82 1.2 3.01.14.19 2.06 3.15 5 4.42.7.3 1.25.48 1.68.62.71.23 1.35.2 1.86.12.57-.08 1.65-.67 1.88-1.32.23-.65.23-1.21.16-1.32-.07-.11-.26-.18-.54-.32z" />
                 </svg>
-            </div>
-            <h1 class="brand-title" id="mainTitle">Collaborative Chat</h1>
-            <span class="brand-badge" id="backendBadge">Spring Boot 3 + STOMP</span>
-        </div>
+			</div>
+			<h1 class="brand-title" id="mainTitle">Collaborative Chat</h1>
+			<span class="brand-badge" id="backendBadge">Spring Boot 3 +
+				STOMP</span>
+		</div>
 
-        <div class="top-actions">
-            <a href="/swagger-ui.html" target="_blank" class="btn-sm-action" id="swaggerDocBtn" title="Open Swagger OpenAPI Documentation">
-                📖 API Docs
-            </a>
+		<div class="top-actions">
+			<a href="/swagger-ui.html" target="_blank" class="btn-sm-action"
+				id="swaggerDocBtn" title="Open Swagger OpenAPI Documentation">
+				📖 API Docs </a>
 
-            <div class="actuator-status" id="actuatorStatusContainer" title="Spring Boot Actuator Status">
-                <span class="pulse-dot"></span>
-                <span id="actuatorStatusBadge">Backend UP</span>
-            </div>
 
-            <div class="current-user-badge" id="currentUserBadge" onclick="openAuthModal()" title="Click to login or switch user">
-                <div class="user-avatar" id="currentUserAvatar">?</div>
-                <div>
-                    <div style="font-size:0.82rem; font-weight:600;" id="currentUsername">Sign In / Register</div>
-                    <div style="font-size:0.68rem; color:var(--text-subtle);" id="currentUserSubtext">Click to login</div>
-                </div>
-            </div>
 
-            <button class="btn-sm-action btn-sm-danger" id="logoutBtn" style="display:none;" onclick="logoutUser()" title="Log out of this tab">
-                Logout
-            </button>
-        </div>
-    </header>
+			<div class="current-user-badge" id="currentUserBadge"
+				onclick="openAuthModal()" title="Click to login or switch user">
+				<div class="user-avatar" id="currentUserAvatar">?</div>
+				<div>
+					<div style="font-size: 0.82rem; font-weight: 600;"
+						id="currentUsername">Sign In / Register</div>
+					<div style="font-size: 0.68rem; color: var(--text-subtle);"
+						id="currentUserSubtext">Click to login</div>
+				</div>
+			</div>
 
-    <!-- Main Workspace Container -->
-    <div class="app-container" id="appContainer">
+			<button class="btn-sm-action btn-sm-danger" id="logoutBtn"
+				style="display: none;" onclick="logoutUser()"
+				title="Log out of this tab">Logout</button>
+		</div>
+	</header>
 
-        <!-- Left Sidebar: Rooms & Context Filter -->
-        <aside class="sidebar-left" id="sidebarLeft">
-            <div class="sidebar-header">
-                <h3>Context Rooms</h3>
-                <div class="search-box">
-                    <span class="search-icon">🔍</span>
-                    <input type="text" id="roomSearchInput" placeholder="Search rooms...">
-                </div>
-            </div>
+	<!-- Main Workspace Container -->
+	<div class="app-container" id="appContainer">
 
-            <!-- Context Filter Pills -->
-            <div class="filter-tags" id="filterTags">
-                <button class="filter-btn active" data-type="ALL">All</button>
-                <button th:each="type : ${roomTypes}"
-                        class="filter-btn"
-                        th:data-type="${type}"
-                        th:text="${type}">STUDY</button>
-            </div>
+		<!-- Left Sidebar: Rooms & Context Filter -->
+		<aside class="sidebar-left" id="sidebarLeft">
+			<div class="sidebar-header">
+				<h3>Context Rooms</h3>
+				<div class="search-box">
+					<span class="search-icon">🔍</span> <input type="text"
+						id="roomSearchInput" placeholder="Search rooms...">
+				</div>
+			</div>
 
-            <!-- Room Cards Stream -->
-            <div class="room-list-container" id="roomListContainer">
-                <!-- Dynamically populated via JS -->
-            </div>
+			<!-- Context Filter Pills -->
+			<div class="filter-tags" id="filterTags">
+				<button class="filter-btn active" data-type="ALL">All</button>
+				<button th:each="type : ${roomTypes}" class="filter-btn"
+					th:data-type="${type}" th:text="${type}">STUDY</button>
+			</div>
 
-            <div class="sidebar-bottom">
-                <button class="btn-primary-block" id="createRoomModalBtn" onclick="openCreateRoomModal()">
-                    ➕ Create Context Room
-                </button>
-            </div>
-        </aside>
+			<!-- Room Cards Stream -->
+			<div class="room-list-container" id="roomListContainer">
+				<!-- Dynamically populated via JS -->
+			</div>
 
-        <!-- Center Main Chat Area -->
-        <main class="chat-main" id="chatMainArea">
+			<div class="sidebar-bottom">
+				<button class="btn-primary-block" id="createRoomModalBtn"
+					onclick="openCreateRoomModal()">➕ Create Context Room</button>
+			</div>
+		</aside>
 
-            <!-- Default Empty State (No Room Selected) -->
-            <div id="noRoomSelected" style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:40px; color:var(--text-muted); background:var(--bg-secondary);">
-                <div style="font-size:2.8rem; margin-bottom:12px;">💬</div>
-                <h2 style="color:var(--text-main); margin-bottom:8px; font-size:1.3rem;">Welcome to Collaborative Chat</h2>
-                <p style="max-width:440px; font-size:0.88rem; line-height:1.5; color:var(--text-muted);">Select a context room from the sidebar or create a new room to start real-time messaging, multi-user presence, and priority alerts.</p>
-            </div>
+		<!-- Center Main Chat Area -->
+		<main class="chat-main" id="chatMainArea">
 
-            <!-- Active Chat Interface -->
-            <div id="chatMain" style="display:none; flex:1; flex-direction:column; overflow:hidden;">
+			<!-- Default Empty State (No Room Selected) -->
+			<div id="noRoomSelected"
+				style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 40px; color: var(--text-muted); background: var(--bg-secondary);">
+				<div style="font-size: 2.8rem; margin-bottom: 12px;">💬</div>
+				<h2
+					style="color: var(--text-main); margin-bottom: 8px; font-size: 1.3rem;">Welcome
+					to Collaborative Chat</h2>
+				<p
+					style="max-width: 440px; font-size: 0.88rem; line-height: 1.5; color: var(--text-muted);">Select
+					a context room from the sidebar or create a new room to start
+					real-time messaging, multi-user presence, and priority alerts.</p>
+			</div>
 
-                <!-- Active Room Header -->
-                <div class="chat-header" id="chatHeader">
-                    <div class="chat-room-info">
-                        <h2>
-                            <span id="activeRoomName">Room Name</span>
-                            <span class="room-type-tag" id="activeRoomType">STUDY</span>
-                        </h2>
-                        <div class="chat-room-meta" id="activeRoomDesc">Discussion room description</div>
-                    </div>
-                    <div class="chat-header-actions" id="chatHeaderActions">
-                        <!-- Join / Leave / Delete buttons dynamically injected -->
-                    </div>
-                </div>
+			<!-- Active Chat Interface -->
+			<div id="chatMain"
+				style="display: none; flex: 1; flex-direction: column; overflow: hidden;">
 
-                <!-- Priority Emergency Alert Banner -->
-                <div class="priority-alert-banner" id="priorityAlertBanner">
-                    <span id="priorityAlertText">🚨 [URGENT] Alert Banner</span>
-                    <button class="msg-action-btn" onclick="hidePriorityBanner()" style="color:var(--accent-rose-dark);">✕</button>
-                </div>
+				<!-- Active Room Header -->
+				<div class="chat-header" id="chatHeader">
+					<div class="chat-room-info">
+						<h2>
+							<span id="activeRoomName">Room Name</span> <span
+								class="room-type-tag" id="activeRoomType">STUDY</span>
+						</h2>
+						<div class="chat-room-meta" id="activeRoomDesc">Discussion
+							room description</div>
+					</div>
+					<div class="chat-header-actions" id="chatHeaderActions">
+						<!-- Join / Leave / Delete buttons dynamically injected -->
+					</div>
+				</div>
 
-                <!-- Messages Stream -->
-                <div class="messages-container" id="messagesContainer">
-                    <div class="load-more-container">
-                        <button class="btn-load-more" id="loadMoreBtn" style="display:none;" onclick="loadRoomMessages(AppState.currentRoom.id, AppState.currentPage + 1)">Load Earlier Messages</button>
-                    </div>
-                    <!-- Dynamically populated via JS -->
-                </div>
+				<!-- Priority Emergency Alert Banner -->
+				<div class="priority-alert-banner" id="priorityAlertBanner">
+					<span id="priorityAlertText">🚨 [URGENT] Alert Banner</span>
+					<button class="msg-action-btn" onclick="hidePriorityBanner()"
+						style="color: var(--accent-rose-dark);">✕</button>
+				</div>
 
-                <!-- Ephemeral Typing Indicator -->
-                <div class="typing-indicator-bar" id="typingIndicatorBar" style="visibility:hidden;">
-                    <div class="typing-dots">
-                        <span class="typing-dot"></span>
-                        <span class="typing-dot"></span>
-                        <span class="typing-dot"></span>
-                    </div>
-                    <span id="typingIndicatorText">User is typing...</span>
-                </div>
+				<!-- Messages Stream -->
+				<div class="messages-container" id="messagesContainer">
+					<div class="load-more-container">
+						<button class="btn-load-more" id="loadMoreBtn"
+							style="display: none;"
+							onclick="loadRoomMessages(AppState.currentRoom.id, AppState.currentPage + 1)">Load
+							Earlier Messages</button>
+					</div>
+					<!-- Dynamically populated via JS -->
+				</div>
 
-                <!-- Chat Input Footer -->
-                <div class="chat-footer" id="chatFooter">
-                    <div class="chat-input-form">
-                        <!-- Priority Selector -->
-                        <div class="priority-selector" id="prioritySelector" title="Select Message Priority">
-                            <button class="priority-btn active" data-priority="NORMAL">Normal</button>
-                            <button class="priority-btn" data-priority="IMPORTANT">Important</button>
-                            <button class="priority-btn" data-priority="URGENT">Urgent</button>
-                        </div>
+				<!-- Ephemeral Typing Indicator -->
+				<div class="typing-indicator-bar" id="typingIndicatorBar"
+					style="visibility: hidden;">
+					<div class="typing-dots">
+						<span class="typing-dot"></span> <span class="typing-dot"></span>
+						<span class="typing-dot"></span>
+					</div>
+					<span id="typingIndicatorText">User is typing...</span>
+				</div>
 
-                        <div class="chat-input-wrapper">
-                            <input type="text" class="chat-input" id="chatInput" placeholder="Type a message... (Press Enter to send)" autocomplete="off">
-                        </div>
+				<!-- Chat Input Footer -->
+				<div class="chat-footer" id="chatFooter">
+					<div class="chat-input-form">
+						<!-- Priority Selector -->
+						<div class="priority-selector" id="prioritySelector"
+							title="Select Message Priority">
+							<button class="priority-btn active" data-priority="NORMAL">Normal</button>
+							<button class="priority-btn" data-priority="IMPORTANT">Important</button>
+							<button class="priority-btn" data-priority="URGENT">Urgent</button>
+						</div>
 
-                        <button class="btn-send" id="btnSend" onclick="sendMessage()">
-                            <span>Send</span>
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+						<div class="chat-input-wrapper">
+							<input type="text" class="chat-input" id="chatInput"
+								placeholder="Type a message... (Press Enter to send)"
+								autocomplete="off">
+						</div>
+
+						<button class="btn-send" id="btnSend" onclick="sendMessage()">
+							<span>Send</span>
+							<svg width="15" height="15" viewBox="0 0 24 24"
+								fill="currentColor">
+                                <path
+									d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
                             </svg>
-                        </button>
-                    </div>
-                </div>
+						</button>
+					</div>
+				</div>
 
-            </div>
-        </main>
+			</div>
+		</main>
 
-        <!-- Right Sidebar: Room Members & Presence -->
-        <aside class="sidebar-right" id="sidebarRight">
-            <div class="members-header">
-                <span>Room Members</span>
-                <span id="memberCountHeader" style="background:var(--accent-primary-light); color:var(--accent-primary); padding:2px 8px; border-radius:12px; font-size:0.75rem; border:1px solid var(--accent-primary-border);">0</span>
-            </div>
-            <div class="member-list" id="membersList">
-                <!-- Dynamically populated via JS -->
-            </div>
-        </aside>
+		<!-- Right Sidebar: Room Members & Presence -->
+		<aside class="sidebar-right" id="sidebarRight">
+			<div class="members-header">
+				<span>Room Members</span> <span id="memberCountHeader"
+					style="background: var(--accent-primary-light); color: var(--accent-primary); padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; border: 1px solid var(--accent-primary-border);">0</span>
+			</div>
+			<div class="member-list" id="membersList">
+				<!-- Dynamically populated via JS -->
+			</div>
+		</aside>
 
-    </div>
+	</div>
 
-    <!-- Modals -->
+	<!-- Modals -->
 
-    <!-- Authentication Modal (Login & Register with Password) -->
-    <div class="modal-overlay" id="authModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="authModalTitle">Welcome to Collaborative Chat</h3>
-                <button class="modal-close" onclick="closeModal('authModal')">✕</button>
-            </div>
+	<!-- Authentication Modal (Login & Register with Password) -->
+	<div class="modal-overlay" id="authModal">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h3 id="authModalTitle">Welcome to Collaborative Chat</h3>
+				<button class="modal-close" onclick="closeModal('authModal')">✕</button>
+			</div>
 
-            <!-- Tabs: Login vs Register -->
-            <div class="modal-tabs">
-                <button class="modal-tab-btn active" id="tabLoginBtn" onclick="switchAuthTab('login')">Login</button>
-                <button class="modal-tab-btn" id="tabRegisterBtn" onclick="switchAuthTab('register')">Register</button>
-            </div>
+			<!-- Tabs: Login vs Register -->
+			<div class="modal-tabs">
+				<button class="modal-tab-btn active" id="tabLoginBtn"
+					onclick="switchAuthTab('login')">Login</button>
+				<button class="modal-tab-btn" id="tabRegisterBtn"
+					onclick="switchAuthTab('register')">Register</button>
+			</div>
 
-            <!-- Tab 1: Login Form (Username/Email + Password) -->
-            <div id="authLoginTabContent">
-                <form id="loginUserForm" onsubmit="handleLoginUser(event)">
-                    <div class="form-group">
-                        <label for="loginUsername">Username or Email</label>
-                        <input type="text" class="form-control" id="loginUsername" placeholder="Enter username or email" required minlength="2" maxlength="100" autocomplete="username">
-                    </div>
-                    <div class="form-group">
-                        <label for="loginPassword">Password</label>
-                        <input type="password" class="form-control" id="loginPassword" placeholder="Enter password" required minlength="4" maxlength="100" autocomplete="current-password">
-                    </div>
-                    <div class="modal-actions">
-                        <button type="submit" class="btn-primary-block" style="width:100%; padding:10px 18px;">Login to Chat</button>
-                    </div>
-                </form>
-                <div style="text-align:center; font-size:0.82rem; color:var(--text-muted); margin-top:14px;">
-                    Don't have an account? <a href="javascript:void(0)" onclick="switchAuthTab('register')" style="color:var(--accent-primary); font-weight:600; text-decoration:none;">Register new account</a>
-                </div>
-            </div>
+			<!-- Tab 1: Login Form (Username/Email + Password) -->
+			<div id="authLoginTabContent">
+				<form id="loginUserForm" onsubmit="handleLoginUser(event)">
+					<div class="form-group">
+						<label for="loginUsername">Username or Email</label> <input
+							type="text" class="form-control" id="loginUsername"
+							placeholder="Enter username or email" required minlength="2"
+							maxlength="100" autocomplete="username">
+					</div>
+					<div class="form-group">
+						<label for="loginPassword">Password</label> <input type="password"
+							class="form-control" id="loginPassword"
+							placeholder="Enter password" required minlength="4"
+							maxlength="100" autocomplete="current-password">
+					</div>
+					<div class="modal-actions">
+						<button type="submit" class="btn-primary-block"
+							style="width: 100%; padding: 10px 18px;">Login to Chat</button>
+					</div>
+				</form>
+				<div
+					style="text-align: center; font-size: 0.82rem; color: var(--text-muted); margin-top: 14px;">
+					Don't have an account? <a href="javascript:void(0)"
+						onclick="switchAuthTab('register')"
+						style="color: var(--accent-primary); font-weight: 600; text-decoration: none;">Register
+						new account</a>
+				</div>
+			</div>
 
-            <!-- Tab 2: Register Form (Username + Email + Password) -->
-            <div id="authRegisterTabContent" style="display:none;">
-                <form id="registerUserForm" onsubmit="handleRegisterUser(event)">
-                    <div class="form-group">
-                        <label for="regUsername">Username</label>
-                        <input type="text" class="form-control" id="regUsername" placeholder="e.g. rahul, alex, priyank" required minlength="2" maxlength="50" autocomplete="username">
-                    </div>
-                    <div class="form-group">
-                        <label for="regEmail">Email Address</label>
-                        <input type="email" class="form-control" id="regEmail" placeholder="e.g. user@example.com" required maxlength="100" autocomplete="email">
-                    </div>
-                    <div class="form-group">
-                        <label for="regPassword">Password</label>
-                        <input type="password" class="form-control" id="regPassword" placeholder="Choose a password (min 4 characters)" required minlength="4" maxlength="100" autocomplete="new-password">
-                    </div>
-                    <div class="modal-actions">
-                        <button type="submit" class="btn-primary-block" style="width:100%; padding:10px 18px;">Create Account & Login</button>
-                    </div>
-                </form>
-                <div style="text-align:center; font-size:0.82rem; color:var(--text-muted); margin-top:14px;">
-                    Already registered? <a href="javascript:void(0)" onclick="switchAuthTab('login')" style="color:var(--accent-primary); font-weight:600; text-decoration:none;">Login here</a>
-                </div>
-            </div>
-        </div>
-    </div>
+			<!-- Tab 2: Register Form (Username + Email + Password) -->
+			<div id="authRegisterTabContent" style="display: none;">
+				<form id="registerUserForm" onsubmit="handleRegisterUser(event)">
+					<div class="form-group">
+						<label for="regUsername">Username</label> <input type="text"
+							class="form-control" id="regUsername"
+							placeholder="e.g. rahul, alex, priyank" required minlength="2"
+							maxlength="50" autocomplete="username">
+					</div>
+					<div class="form-group">
+						<label for="regEmail">Email Address</label> <input type="email"
+							class="form-control" id="regEmail"
+							placeholder="e.g. user@example.com" required maxlength="100"
+							autocomplete="email">
+					</div>
+					<div class="form-group">
+						<label for="regPassword">Password</label> <input type="password"
+							class="form-control" id="regPassword"
+							placeholder="Choose a password (min 4 characters)" required
+							minlength="4" maxlength="100" autocomplete="new-password">
+					</div>
+					<div class="modal-actions">
+						<button type="submit" class="btn-primary-block"
+							style="width: 100%; padding: 10px 18px;">Create Account
+							& Login</button>
+					</div>
+				</form>
+				<div
+					style="text-align: center; font-size: 0.82rem; color: var(--text-muted); margin-top: 14px;">
+					Already registered? <a href="javascript:void(0)"
+						onclick="switchAuthTab('login')"
+						style="color: var(--accent-primary); font-weight: 600; text-decoration: none;">Login
+						here</a>
+				</div>
+			</div>
+		</div>
+	</div>
 
-    <!-- Create Room Modal -->
-    <div class="modal-overlay" id="createRoomModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Create Context Room</h3>
-                <button class="modal-close" onclick="closeModal('createRoomModal')">✕</button>
-            </div>
-            <form id="createRoomForm" onsubmit="handleCreateRoom(event)">
-                <div class="form-group">
-                    <label for="newRoomName">Room Name</label>
-                    <input type="text" class="form-control" id="newRoomName" placeholder="e.g. Java Placement Preparation" required minlength="2" maxlength="100" autocomplete="off">
-                </div>
-                <div class="form-group">
-                    <label for="newRoomDesc">Description</label>
-                    <textarea class="form-control" id="newRoomDesc" rows="3" placeholder="Discussion room purpose..." maxlength="1000"></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="newRoomType">Room Context Type</label>
-                    <select class="form-control" id="newRoomType" required>
-                        <option th:each="type : ${roomTypes}"
-                                th:value="${type}"
-                                th:text="${type}">STUDY</option>
-                    </select>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn-sm-action" onclick="closeModal('createRoomModal')">Cancel</button>
-                    <button type="submit" class="btn-primary-block" style="width:auto; padding:8px 18px;">Create Room</button>
-                </div>
-            </form>
-        </div>
-    </div>
+	<!-- Create Room Modal -->
+	<div class="modal-overlay" id="createRoomModal">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h3>Create Context Room</h3>
+				<button class="modal-close" onclick="closeModal('createRoomModal')">✕</button>
+			</div>
+			<form id="createRoomForm" onsubmit="handleCreateRoom(event)">
+				<div class="form-group">
+					<label for="newRoomName">Room Name</label> <input type="text"
+						class="form-control" id="newRoomName"
+						placeholder="e.g. Java Placement Preparation" required
+						minlength="2" maxlength="100" autocomplete="off">
+				</div>
+				<div class="form-group">
+					<label for="newRoomDesc">Description</label>
+					<textarea class="form-control" id="newRoomDesc" rows="3"
+						placeholder="Discussion room purpose..." maxlength="1000"></textarea>
+				</div>
+				<div class="form-group">
+					<label for="newRoomType">Room Context Type</label> <select
+						class="form-control" id="newRoomType" required>
+						<option th:each="type : ${roomTypes}" th:value="${type}"
+							th:text="${type}">STUDY</option>
+					</select>
+				</div>
+				<div class="modal-actions">
+					<button type="button" class="btn-sm-action"
+						onclick="closeModal('createRoomModal')">Cancel</button>
+					<button type="submit" class="btn-primary-block"
+						style="width: auto; padding: 8px 18px;">Create Room</button>
+				</div>
+			</form>
+		</div>
+	</div>
 
-    <!-- Toast Notification Container -->
-    <div class="toast-container" id="toastContainer"></div>
+	<!-- Toast Notification Container -->
+	<div class="toast-container" id="toastContainer"></div>
 
-    <!-- Application JS Logic -->
-    <script th:src="@{/js/app.js}"></script>
+	<!-- Application JS Logic -->
+	<script th:src="@{/js/app.js}"></script>
 </body>
 </html>
