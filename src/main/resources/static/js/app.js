@@ -60,24 +60,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadRooms();
     connectWebSocket();
 
-    // Check if authenticated session exists
-    const savedUserId = localStorage.getItem('chat_active_user_id');
-    if (savedUserId) {
+    // Clean any shared localStorage from previous versions
+    try {
+        localStorage.removeItem('chat_active_user_id');
+    } catch (e) {}
+
+    // Check if this specific tab has an authenticated session (sessionStorage is strictly per-tab)
+    const tabUserId = sessionStorage.getItem('chat_tab_user_id');
+    if (tabUserId) {
         try {
-            const res = await fetch(`/api/users/${savedUserId}`);
+            const res = await fetch(`/api/users/${tabUserId}`);
             if (res.ok) {
                 const user = await res.json();
                 setCurrentUser(user, false);
             } else {
-                localStorage.removeItem('chat_active_user_id');
+                sessionStorage.removeItem('chat_tab_user_id');
                 openAuthModal();
             }
         } catch (e) {
-            localStorage.removeItem('chat_active_user_id');
+            sessionStorage.removeItem('chat_tab_user_id');
             openAuthModal();
         }
     } else {
-        // Direct Login / Register prompt on application startup
+        // Every new tab starts with a fresh Login / Register prompt
         openAuthModal();
     }
 
@@ -286,15 +291,17 @@ async function handleRegisterUser(event) {
 
 function setCurrentUser(user, showFeedback = true) {
     AppState.currentUser = user;
-    localStorage.setItem('chat_active_user_id', user.id);
+    sessionStorage.setItem('chat_tab_user_id', user.id);
 
     const nameEl = document.getElementById('currentUsername');
     const avatarEl = document.getElementById('currentUserAvatar');
     const subtextEl = document.getElementById('currentUserSubtext');
+    const logoutBtn = document.getElementById('logoutBtn');
 
     if (nameEl) nameEl.textContent = user.username;
     if (avatarEl) avatarEl.textContent = user.username.substring(0, 2).toUpperCase();
     if (subtextEl) subtextEl.textContent = 'Active profile';
+    if (logoutBtn) logoutBtn.style.display = 'inline-flex';
 
     registerPresence(user);
     if (AppState.currentRoom) {
@@ -303,17 +310,24 @@ function setCurrentUser(user, showFeedback = true) {
 }
 
 function logoutUser() {
-    localStorage.removeItem('chat_active_user_id');
+    sessionStorage.removeItem('chat_tab_user_id');
     AppState.currentUser = null;
 
     const nameEl = document.getElementById('currentUsername');
     const avatarEl = document.getElementById('currentUserAvatar');
     const subtextEl = document.getElementById('currentUserSubtext');
+    const logoutBtn = document.getElementById('logoutBtn');
 
     if (nameEl) nameEl.textContent = 'Sign In / Register';
     if (avatarEl) avatarEl.textContent = '?';
     if (subtextEl) subtextEl.textContent = 'Click to login';
+    if (logoutBtn) logoutBtn.style.display = 'none';
 
+    if (AppState.currentRoom) {
+        renderRoomActionButtons();
+    }
+
+    showToast('Logged out of current tab', 'NORMAL');
     openAuthModal();
 }
 
