@@ -9,6 +9,7 @@ C:\Desktop\WS\src\main\java\com\example\chatapp\controller\UserController.java
 C:\Desktop\WS\src\main\java\com\example\chatapp\controller\ViewController.java
 C:\Desktop\WS\src\main\java\com\example\chatapp\dto\request\CreateRoomRequest.java
 C:\Desktop\WS\src\main\java\com\example\chatapp\dto\request\CreateUserRequest.java
+C:\Desktop\WS\src\main\java\com\example\chatapp\dto\request\LoginRequest.java
 C:\Desktop\WS\src\main\java\com\example\chatapp\dto\request\SendMessageRequest.java
 C:\Desktop\WS\src\main\java\com\example\chatapp\dto\request\UpdateMessageRequest.java
 C:\Desktop\WS\src\main\java\com\example\chatapp\dto\request\UpdateRoomRequest.java

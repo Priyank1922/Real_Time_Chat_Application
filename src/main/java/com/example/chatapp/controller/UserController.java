@@ -1,6 +1,7 @@
 package com.example.chatapp.controller;
 
 import com.example.chatapp.dto.request.CreateUserRequest;
+import com.example.chatapp.dto.request.LoginRequest;
 import com.example.chatapp.dto.request.UpdateUserRequest;
 import com.example.chatapp.dto.response.ErrorResponse;
 import com.example.chatapp.dto.response.RoomResponse;
@@ -29,7 +30,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/users")
-@Tag(name = "Users", description = "REST APIs for User management and room memberships")
+@Tag(name = "Users", description = "REST APIs for User management, authentication, and room memberships")
 public class UserController {
 
     private final UserService userService;
@@ -39,7 +40,7 @@ public class UserController {
     }
 
     @PostMapping
-    @Operation(summary = "Create a new user", description = "Registers a new user with unique username and email.")
+    @Operation(summary = "Create a new user", description = "Registers a new user with unique username, email, and password.")
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "User created successfully",
                 content = @Content(schema = @Schema(implementation = UserResponse.class))),
@@ -51,6 +52,21 @@ public class UserController {
     public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserRequest request) {
         UserResponse response = userService.createUser(request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
+
+    @PostMapping("/login")
+    @Operation(summary = "Login user", description = "Authenticates a user with username/email and password.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Login successful",
+                content = @Content(schema = @Schema(implementation = UserResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Invalid request payload",
+                content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "403", description = "Invalid credentials",
+                content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public ResponseEntity<UserResponse> login(@Valid @RequestBody LoginRequest request) {
+        UserResponse response = userService.login(request);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping

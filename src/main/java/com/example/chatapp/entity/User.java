@@ -35,6 +35,9 @@ public class User {
     @Column(nullable = false, unique = true, length = 100)
     private String email;
 
+    @Column(nullable = false, length = 100)
+    private String password = "password123";
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private UserStatus status = UserStatus.OFFLINE;
@@ -51,14 +54,19 @@ public class User {
     public User() {
     }
 
-    public User(Long id, String username, String email, UserStatus status, LocalDateTime lastSeen, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public User(Long id, String username, String email, String password, UserStatus status, LocalDateTime lastSeen, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.username = username;
         this.email = email;
+        this.password = (password != null && !password.isBlank()) ? password : "password123";
         this.status = status != null ? status : UserStatus.OFFLINE;
         this.lastSeen = lastSeen;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+    }
+
+    public User(Long id, String username, String email, UserStatus status, LocalDateTime lastSeen, LocalDateTime createdAt, LocalDateTime updatedAt) {
+        this(id, username, email, "password123", status, lastSeen, createdAt, updatedAt);
     }
 
     @PrePersist
@@ -69,6 +77,9 @@ public class User {
         }
         if (this.status == null) {
             this.status = UserStatus.OFFLINE;
+        }
+        if (this.password == null || this.password.isBlank()) {
+            this.password = "password123";
         }
         this.updatedAt = now;
     }
@@ -100,6 +111,14 @@ public class User {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
     }
 
     public UserStatus getStatus() {
@@ -142,6 +161,7 @@ public class User {
         private Long id;
         private String username;
         private String email;
+        private String password = "password123";
         private UserStatus status = UserStatus.OFFLINE;
         private LocalDateTime lastSeen;
         private LocalDateTime createdAt;
@@ -159,6 +179,11 @@ public class User {
 
         public Builder email(String email) {
             this.email = email;
+            return this;
+        }
+
+        public Builder password(String password) {
+            this.password = password;
             return this;
         }
 
@@ -183,7 +208,7 @@ public class User {
         }
 
         public User build() {
-            return new User(id, username, email, status, lastSeen, createdAt, updatedAt);
+            return new User(id, username, email, password, status, lastSeen, createdAt, updatedAt);
         }
     }
 }

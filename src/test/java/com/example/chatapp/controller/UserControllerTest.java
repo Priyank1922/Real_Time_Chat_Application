@@ -1,6 +1,7 @@
 package com.example.chatapp.controller;
 
 import com.example.chatapp.dto.request.CreateUserRequest;
+import com.example.chatapp.dto.request.LoginRequest;
 import com.example.chatapp.dto.request.UpdateUserRequest;
 import com.example.chatapp.dto.response.RoomResponse;
 import com.example.chatapp.dto.response.UserResponse;
@@ -8,6 +9,7 @@ import com.example.chatapp.enums.RoomType;
 import com.example.chatapp.enums.UserStatus;
 import com.example.chatapp.exception.ConflictException;
 import com.example.chatapp.exception.ResourceNotFoundException;
+import com.example.chatapp.exception.UnauthorizedActionException;
 import com.example.chatapp.service.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
@@ -22,7 +24,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -46,6 +47,7 @@ class UserControllerTest {
         CreateUserRequest request = CreateUserRequest.builder()
                 .username("priyank")
                 .email("priyank@example.com")
+                .password("password123")
                 .build();
 
         UserResponse response = UserResponse.builder()
@@ -69,11 +71,57 @@ class UserControllerTest {
     }
 
     @Test
+    @DisplayName("POST /api/users/login - returns 200 OK with valid credentials")
+    void testLogin_Success() throws Exception {
+        LoginRequest request = LoginRequest.builder()
+                .username("priyank")
+                .password("password123")
+                .build();
+
+        UserResponse response = UserResponse.builder()
+                .id(1L)
+                .username("priyank")
+                .email("priyank@example.com")
+                .status(UserStatus.ONLINE)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        when(userService.login(any(LoginRequest.class))).thenReturn(response);
+
+        mockMvc.perform(post("/api/users/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1L))
+                .andExpect(jsonPath("$.username").value("priyank"));
+    }
+
+    @Test
+    @DisplayName("POST /api/users/login - invalid credentials returns 403 Forbidden")
+    void testLogin_InvalidCredentials_Returns403() throws Exception {
+        LoginRequest request = LoginRequest.builder()
+                .username("priyank")
+                .password("wrongpassword")
+                .build();
+
+        when(userService.login(any(LoginRequest.class)))
+                .thenThrow(new UnauthorizedActionException("Invalid username/email or password"));
+
+        mockMvc.perform(post("/api/users/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FORBIDDEN_ACTION"))
+                .andExpect(jsonPath("$.message").value("Invalid username/email or password"));
+    }
+
+    @Test
     @DisplayName("POST /api/users - invalid payload returns 400 Bad Request")
     void testCreateUser_InvalidPayload_Returns400() throws Exception {
         CreateUserRequest request = CreateUserRequest.builder()
                 .username("")
                 .email("invalid-email")
+                .password("")
                 .build();
 
         mockMvc.perform(post("/api/users")
@@ -91,6 +139,7 @@ class UserControllerTest {
         CreateUserRequest request = CreateUserRequest.builder()
                 .username("priyank")
                 .email("priyank@example.com")
+                .password("password123")
                 .build();
 
         when(userService.createUser(any(CreateUserRequest.class)))

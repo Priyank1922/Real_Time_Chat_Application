@@ -4,7 +4,6 @@
 
 const AppState = {
     currentUser: null,
-    users: [],
     currentRoom: null,
     rooms: [],
     members: [],
@@ -58,22 +57,27 @@ const SoundEffects = {
 document.addEventListener('DOMContentLoaded', async () => {
     initEventListeners();
     await checkActuatorHealth();
-    await loadUsers();
     await loadRooms();
     connectWebSocket();
 
-    // Check if user session exists in localStorage
+    // Check if authenticated session exists
     const savedUserId = localStorage.getItem('chat_active_user_id');
     if (savedUserId) {
-        const user = AppState.users.find(u => u.id.toString() === savedUserId.toString());
-        if (user) {
-            switchUser(user.id, false);
-        } else {
+        try {
+            const res = await fetch(`/api/users/${savedUserId}`);
+            if (res.ok) {
+                const user = await res.json();
+                setCurrentUser(user, false);
+            } else {
+                localStorage.removeItem('chat_active_user_id');
+                openAuthModal();
+            }
+        } catch (e) {
             localStorage.removeItem('chat_active_user_id');
             openAuthModal();
         }
     } else {
-        // No default user selected - show Login / Register options directly
+        // Direct Login / Register prompt on application startup
         openAuthModal();
     }
 
@@ -146,7 +150,6 @@ function handlePresenceEvent(event) {
     } else if (event.eventType === 'USER_OFFLINE') {
         showToast(`${event.username} went Offline`, 'NORMAL');
     }
-    loadUsers();
     if (AppState.currentRoom) loadRoomMembers(AppState.currentRoom.id);
 }
 
@@ -186,19 +189,144 @@ function handleRoomEvent(event) {
     }
 }
 
-// ================= REST API Interactions =================
-async function loadUsers() {
-    try {
-        const res = await fetch('/api/users');
-        if (res.ok) {
-            AppState.users = await res.json();
-            renderAuthUsersList();
-        }
-    } catch (e) {
-        console.error('Error loading users:', e);
+// ================= Authentication =================
+function openAuthModal() {
+    switchAuthTab('login');
+    openModal('authModal');
+}
+
+function switchAuthTab(tab) {
+    const loginBtn = document.getElementById('tabLoginBtn');
+    const registerBtn = document.getElementById('tabRegisterBtn');
+    const loginContent = document.getElementById('authLoginTabContent');
+    const registerContent = document.getElementById('authRegisterTabContent');
+
+    if (tab === 'login') {
+        loginBtn.classList.add('active');
+        registerBtn.classList.remove('active');
+        loginContent.style.display = 'block';
+        registerContent.style.display = 'none';
+        setTimeout(() => {
+            const input = document.getElementById('loginUsername');
+            if (input) input.focus();
+        }, 50);
+    } else {
+        registerBtn.classList.add('active');
+        loginBtn.classList.remove('active');
+        loginContent.style.display = 'none';
+        registerContent.style.display = 'block';
+        setTimeout(() => {
+            const input = document.getElementById('regUsername');
+            if (input) input.focus();
+        }, 50);
     }
 }
 
+async function handleLoginUser(event) {
+    event.preventDefault();
+    const username = document.getElementById('loginUsername').value.trim();
+    const password = document.getElementById('loginPassword').value;
+
+    if (!username || !password) return;
+
+    try {
+        const res = await fetch('/api/users/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+
+        if (res.ok) {
+            const user = await res.json();
+            document.getElementById('loginUsername').value = '';
+            document.getElementById('loginPassword').value = '';
+            closeModal('authModal');
+            setCurrentUser(user, true);
+            showToast(`Welcome back, ${user.username}!`, 'NORMAL');
+        } else {
+            const err = await res.json();
+            showToast(err.message || 'Invalid username/email or password', 'URGENT');
+        }
+    } catch (err) {
+        showToast(err.message || 'Failed to connect to backend', 'URGENT');
+    }
+}
+
+async function handleRegisterUser(event) {
+    event.preventDefault();
+    const username = document.getElementById('regUsername').value.trim();
+    const email = document.getElementById('regEmail').value.trim();
+    const password = document.getElementById('regPassword').value;
+
+    if (!username || !email || !password) return;
+
+    try {
+        const res = await fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, email, password })
+        });
+
+        if (res.ok) {
+            const newUser = await res.json();
+            document.getElementById('regUsername').value = '';
+            document.getElementById('regEmail').value = '';
+            document.getElementById('regPassword').value = '';
+            closeModal('authModal');
+            setCurrentUser(newUser, true);
+            showToast(`Account created! Welcome, ${newUser.username}!`, 'NORMAL');
+        } else {
+            const err = await res.json();
+            showToast(err.message || 'Registration failed', 'URGENT');
+        }
+    } catch (err) {
+        showToast(err.message || 'Failed to connect to backend', 'URGENT');
+    }
+}
+
+function setCurrentUser(user, showFeedback = true) {
+    AppState.currentUser = user;
+    localStorage.setItem('chat_active_user_id', user.id);
+
+    const nameEl = document.getElementById('currentUsername');
+    const avatarEl = document.getElementById('currentUserAvatar');
+    const subtextEl = document.getElementById('currentUserSubtext');
+
+    if (nameEl) nameEl.textContent = user.username;
+    if (avatarEl) avatarEl.textContent = user.username.substring(0, 2).toUpperCase();
+    if (subtextEl) subtextEl.textContent = 'Active profile';
+
+    registerPresence(user);
+    if (AppState.currentRoom) {
+        renderRoomActionButtons();
+    }
+}
+
+function logoutUser() {
+    localStorage.removeItem('chat_active_user_id');
+    AppState.currentUser = null;
+
+    const nameEl = document.getElementById('currentUsername');
+    const avatarEl = document.getElementById('currentUserAvatar');
+    const subtextEl = document.getElementById('currentUserSubtext');
+
+    if (nameEl) nameEl.textContent = 'Sign In / Register';
+    if (avatarEl) avatarEl.textContent = '?';
+    if (subtextEl) subtextEl.textContent = 'Click to login';
+
+    openAuthModal();
+}
+
+function requireUserLogin() {
+    if (!AppState.currentUser) {
+        showToast('Please login or register to continue', 'IMPORTANT');
+        openAuthModal();
+        return false;
+    }
+    return true;
+}
+
+// ================= REST API Interactions =================
 async function loadRooms() {
     try {
         let url = '/api/rooms';
@@ -435,151 +563,6 @@ async function deleteMessagePrompt(messageId) {
     } catch (e) {
         showToast(e.message, 'URGENT');
     }
-}
-
-// ================= Authentication & User Management =================
-function openAuthModal() {
-    renderAuthUsersList();
-    openModal('authModal');
-}
-
-function switchAuthTab(tab) {
-    const selectBtn = document.getElementById('tabSelectUserBtn');
-    const registerBtn = document.getElementById('tabRegisterUserBtn');
-    const selectContent = document.getElementById('authSelectTabContent');
-    const registerContent = document.getElementById('authRegisterTabContent');
-
-    if (tab === 'select') {
-        selectBtn.classList.add('active');
-        registerBtn.classList.remove('active');
-        selectContent.style.display = 'block';
-        registerContent.style.display = 'none';
-        renderAuthUsersList();
-    } else {
-        registerBtn.classList.add('active');
-        selectBtn.classList.remove('active');
-        selectContent.style.display = 'none';
-        registerContent.style.display = 'block';
-        setTimeout(() => document.getElementById('regUsername').focus(), 50);
-    }
-}
-
-function renderAuthUsersList(query = '') {
-    const container = document.getElementById('authExistingUsersList');
-    const noUsersNotice = document.getElementById('noUsersNotice');
-    if (!container) return;
-    container.innerHTML = '';
-
-    const filtered = AppState.users.filter(u => {
-        if (!query) return true;
-        const q = query.toLowerCase();
-        return u.username.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
-    });
-
-    if (filtered.length === 0) {
-        if (noUsersNotice) noUsersNotice.style.display = 'block';
-        return;
-    }
-
-    if (noUsersNotice) noUsersNotice.style.display = 'none';
-
-    filtered.forEach(u => {
-        const isCurrent = AppState.currentUser && AppState.currentUser.id === u.id;
-        const card = document.createElement('div');
-        card.className = 'user-select-card';
-        if (isCurrent) {
-            card.style.borderColor = 'var(--accent-primary)';
-            card.style.background = 'var(--accent-primary-light)';
-        }
-
-        const initials = u.username ? u.username.substring(0, 2).toUpperCase() : 'U';
-        card.innerHTML = `
-            <div class="user-avatar">${initials}</div>
-            <div style="flex:1; overflow:hidden;">
-                <div style="font-weight:600; font-size:0.88rem; color:var(--text-main);">${escapeHtml(u.username)} ${isCurrent ? '<span style="font-size:0.7rem; color:var(--accent-primary); font-weight:700;">(Active)</span>' : ''}</div>
-                <div style="font-size:0.75rem; color:var(--text-muted);">${escapeHtml(u.email)}</div>
-            </div>
-            <button class="btn-sm-action" style="${isCurrent ? 'background:var(--accent-primary); color:#fff; border-color:var(--accent-primary);' : ''}">${isCurrent ? 'Active' : 'Login'}</button>
-        `;
-
-        card.onclick = () => {
-            switchUser(u.id);
-            closeModal('authModal');
-        };
-
-        container.appendChild(card);
-    });
-}
-
-function filterUserList(query) {
-    renderAuthUsersList(query);
-}
-
-function switchUser(userId, showFeedback = true) {
-    const user = AppState.users.find(u => u.id === userId);
-    if (!user) return;
-
-    AppState.currentUser = user;
-    localStorage.setItem('chat_active_user_id', user.id);
-
-    const nameEl = document.getElementById('currentUsername');
-    const avatarEl = document.getElementById('currentUserAvatar');
-    const subtextEl = document.getElementById('currentUserSubtext');
-
-    if (nameEl) nameEl.textContent = user.username;
-    if (avatarEl) avatarEl.textContent = user.username.substring(0, 2).toUpperCase();
-    if (subtextEl) subtextEl.textContent = 'Active profile';
-
-    registerPresence(user);
-    if (AppState.currentRoom) {
-        renderRoomActionButtons();
-    }
-
-    if (showFeedback) {
-        showToast(`Logged in as ${user.username}`, 'NORMAL');
-    }
-}
-
-async function handleRegisterUser(event) {
-    event.preventDefault();
-    const usernameInput = document.getElementById('regUsername');
-    const emailInput = document.getElementById('regEmail');
-    const username = usernameInput.value.trim();
-    const email = emailInput.value.trim();
-
-    if (!username || !email) return;
-
-    try {
-        const res = await fetch('/api/users', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, email })
-        });
-
-        if (res.ok) {
-            const newUser = await res.json();
-            showToast(`User ${newUser.username} registered successfully!`, 'NORMAL');
-            usernameInput.value = '';
-            emailInput.value = '';
-            closeModal('authModal');
-            await loadUsers();
-            switchUser(newUser.id, true);
-        } else {
-            const err = await res.json();
-            showToast(err.message, 'URGENT');
-        }
-    } catch (err) {
-        showToast(err.message, 'URGENT');
-    }
-}
-
-function requireUserLogin() {
-    if (!AppState.currentUser) {
-        showToast('Please select or register a user first', 'IMPORTANT');
-        openAuthModal();
-        return false;
-    }
-    return true;
 }
 
 // ================= UI Rendering =================

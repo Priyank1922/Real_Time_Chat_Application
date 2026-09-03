@@ -19,12 +19,25 @@ public class CreateUserRequest {
     @Schema(example = "priyank@example.com", description = "Unique user email")
     private String email;
 
+    @NotBlank(message = "Password cannot be blank")
+    @Size(min = 4, max = 100, message = "Password must be between 4 and 100 characters")
+    @Schema(example = "password123", description = "User password")
+    private String password;
+
     public CreateUserRequest() {
+        this.password = "password123";
     }
 
     public CreateUserRequest(String username, String email) {
         this.username = username;
         this.email = email;
+        this.password = "password123";
+    }
+
+    public CreateUserRequest(String username, String email, String password) {
+        this.username = username;
+        this.email = email;
+        this.password = (password != null && !password.isBlank()) ? password : "password123";
     }
 
     public String getUsername() {
@@ -43,6 +56,14 @@ public class CreateUserRequest {
         this.email = email;
     }
 
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -50,6 +71,7 @@ public class CreateUserRequest {
     public static class Builder {
         private String username;
         private String email;
+        private String password = "password123";
 
         public Builder username(String username) {
             this.username = username;
@@ -61,8 +83,13 @@ public class CreateUserRequest {
             return this;
         }
 
+        public Builder password(String password) {
+            this.password = password;
+            return this;
+        }
+
         public CreateUserRequest build() {
-            return new CreateUserRequest(username, email);
+            return new CreateUserRequest(username, email, password);
         }
     }
 }

@@ -2,6 +2,7 @@ package com.example.chatapp.service;
 
 import com.example.chatapp.config.CacheConfig;
 import com.example.chatapp.dto.request.CreateUserRequest;
+import com.example.chatapp.dto.request.LoginRequest;
 import com.example.chatapp.dto.request.UpdateUserRequest;
 import com.example.chatapp.dto.response.RoomResponse;
 import com.example.chatapp.dto.response.UserResponse;
@@ -10,6 +11,7 @@ import com.example.chatapp.entity.User;
 import com.example.chatapp.enums.UserStatus;
 import com.example.chatapp.exception.ConflictException;
 import com.example.chatapp.exception.ResourceNotFoundException;
+import com.example.chatapp.exception.UnauthorizedActionException;
 import com.example.chatapp.repository.RoomMemberRepository;
 import com.example.chatapp.repository.UserRepository;
 import org.springframework.cache.annotation.CacheEvict;
@@ -43,11 +45,25 @@ public class UserService {
         User user = User.builder()
                 .username(request.getUsername())
                 .email(request.getEmail())
+                .password(request.getPassword())
                 .status(UserStatus.OFFLINE)
                 .build();
 
         User savedUser = userRepository.save(user);
         return mapToUserResponse(savedUser);
+    }
+
+    @Transactional(readOnly = true)
+    public UserResponse login(LoginRequest request) {
+        String identifier = request.getUsername().trim();
+        User user = userRepository.findByUsernameOrEmail(identifier, identifier)
+                .orElseThrow(() -> new UnauthorizedActionException("Invalid username/email or password"));
+
+        if (!user.getPassword().equals(request.getPassword())) {
+            throw new UnauthorizedActionException("Invalid username/email or password");
+        }
+
+        return mapToUserResponse(user);
     }
 
     @Transactional(readOnly = true)

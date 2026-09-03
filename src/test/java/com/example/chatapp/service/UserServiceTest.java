@@ -1,6 +1,7 @@
 package com.example.chatapp.service;
 
 import com.example.chatapp.dto.request.CreateUserRequest;
+import com.example.chatapp.dto.request.LoginRequest;
 import com.example.chatapp.dto.request.UpdateUserRequest;
 import com.example.chatapp.dto.response.RoomResponse;
 import com.example.chatapp.dto.response.UserResponse;
@@ -12,6 +13,7 @@ import com.example.chatapp.enums.RoomType;
 import com.example.chatapp.enums.UserStatus;
 import com.example.chatapp.exception.ConflictException;
 import com.example.chatapp.exception.ResourceNotFoundException;
+import com.example.chatapp.exception.UnauthorizedActionException;
 import com.example.chatapp.repository.RoomMemberRepository;
 import com.example.chatapp.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,6 +52,7 @@ class UserServiceTest {
                 .id(1L)
                 .username("priyank")
                 .email("priyank@example.com")
+                .password("password123")
                 .status(UserStatus.OFFLINE)
                 .createdAt(LocalDateTime.now())
                 .build();
@@ -61,6 +64,7 @@ class UserServiceTest {
         CreateUserRequest request = CreateUserRequest.builder()
                 .username("priyank")
                 .email("priyank@example.com")
+                .password("password123")
                 .build();
 
         when(userRepository.existsByUsername("priyank")).thenReturn(false);
@@ -104,6 +108,49 @@ class UserServiceTest {
 
         assertThrows(ConflictException.class, () -> userService.createUser(request));
         verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    @DisplayName("4. User login - success with valid credentials")
+    void testLogin_Success() {
+        LoginRequest request = LoginRequest.builder()
+                .username("priyank")
+                .password("password123")
+                .build();
+
+        when(userRepository.findByUsernameOrEmail("priyank", "priyank")).thenReturn(Optional.of(sampleUser));
+
+        UserResponse response = userService.login(request);
+
+        assertNotNull(response);
+        assertEquals(1L, response.getId());
+        assertEquals("priyank", response.getUsername());
+    }
+
+    @Test
+    @DisplayName("5. User login - wrong password throws UnauthorizedActionException")
+    void testLogin_WrongPassword_ThrowsUnauthorized() {
+        LoginRequest request = LoginRequest.builder()
+                .username("priyank")
+                .password("wrongpassword")
+                .build();
+
+        when(userRepository.findByUsernameOrEmail("priyank", "priyank")).thenReturn(Optional.of(sampleUser));
+
+        assertThrows(UnauthorizedActionException.class, () -> userService.login(request));
+    }
+
+    @Test
+    @DisplayName("6. User login - user not found throws UnauthorizedActionException")
+    void testLogin_UserNotFound_ThrowsUnauthorized() {
+        LoginRequest request = LoginRequest.builder()
+                .username("unknown")
+                .password("password123")
+                .build();
+
+        when(userRepository.findByUsernameOrEmail("unknown", "unknown")).thenReturn(Optional.empty());
+
+        assertThrows(UnauthorizedActionException.class, () -> userService.login(request));
     }
 
     @Test

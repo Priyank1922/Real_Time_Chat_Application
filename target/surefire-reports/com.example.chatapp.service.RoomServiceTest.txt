@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.example.chatapp.service.RoomServiceTest
 -------------------------------------------------------------------------------
-Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.083 s -- in com.example.chatapp.service.RoomServiceTest
+Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.084 s -- in com.example.chatapp.service.RoomServiceTest
