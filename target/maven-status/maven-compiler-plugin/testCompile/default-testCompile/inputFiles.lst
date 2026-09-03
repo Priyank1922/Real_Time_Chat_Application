@@ -1,0 +1,11 @@
+C:\Desktop\WS\src\test\java\com\example\chatapp\ChatApplicationTests.java
+C:\Desktop\WS\src\test\java\com\example\chatapp\controller\MessageControllerTest.java
+C:\Desktop\WS\src\test\java\com\example\chatapp\controller\RoomControllerTest.java
+C:\Desktop\WS\src\test\java\com\example\chatapp\controller\UserControllerTest.java
+C:\Desktop\WS\src\test\java\com\example\chatapp\controller\ViewControllerTest.java
+C:\Desktop\WS\src\test\java\com\example\chatapp\integration\ChatIntegrationTest.java
+C:\Desktop\WS\src\test\java\com\example\chatapp\service\MessageServiceTest.java
+C:\Desktop\WS\src\test\java\com\example\chatapp\service\PresenceServiceTest.java
+C:\Desktop\WS\src\test\java\com\example\chatapp\service\RoomServiceTest.java
+C:\Desktop\WS\src\test\java\com\example\chatapp\service\UserServiceTest.java
+C:\Desktop\WS\src\test\java\com\example\chatapp\websocket\WebSocketControllerTest.java

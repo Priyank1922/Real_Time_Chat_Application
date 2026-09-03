@@ -121,7 +121,6 @@ class MessageServiceTest {
         assertEquals(MessagePriority.NORMAL, response.getPriority());
 
         // Verify WebSocket broadcast
-        ArgumentCaptor<WebSocketEventResponse> eventCaptor = ArgumentCaptor.forClass(WebSocketEventResponse.builder().getClass().getDeclaringClass());
         verify(simpMessagingTemplate).convertAndSend(eq("/topic/rooms/10/messages"), any(WebSocketEventResponse.class));
     }
 

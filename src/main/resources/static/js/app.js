@@ -21,7 +21,7 @@ const AppState = {
     totalPages: 1
 };
 
-// Web Audio API Synth Alert Chimes (Zero external asset dependencies)
+// Web Audio API Synth Alert Chimes
 const SoundEffects = {
     playNotification(type) {
         try {
@@ -50,7 +50,7 @@ const SoundEffects = {
                 osc.stop(ctx.currentTime + 0.3);
             }
         } catch (e) {
-            // AudioContext not allowed without prior user interaction in some browsers
+            // AudioContext autoplay restrictions in some browsers
         }
     }
 };
@@ -61,6 +61,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadUsers();
     await loadRooms();
     connectWebSocket();
+
+    // Check if user session exists in localStorage
+    const savedUserId = localStorage.getItem('chat_active_user_id');
+    if (savedUserId) {
+        const user = AppState.users.find(u => u.id.toString() === savedUserId.toString());
+        if (user) {
+            switchUser(user.id, false);
+        } else {
+            localStorage.removeItem('chat_active_user_id');
+            openAuthModal();
+        }
+    } else {
+        // No default user selected - show Login / Register options directly
+        openAuthModal();
+    }
+
     setInterval(checkActuatorHealth, 15000);
 });
 
@@ -75,10 +91,7 @@ function connectWebSocket() {
         headers['userId'] = AppState.currentUser.id.toString();
     }
 
-    AppState.stompClient.connect(headers, (frame) => {
-        console.log('Connected to WebSocket STOMP broker');
-        showToast('Connected to Real-Time Broker', 'NORMAL');
-
+    AppState.stompClient.connect(headers, () => {
         // Subscribe to global presence topic
         AppState.presenceSub = AppState.stompClient.subscribe('/topic/presence', (message) => {
             const event = JSON.parse(message.body);
@@ -101,7 +114,7 @@ function connectWebSocket() {
 }
 
 function registerPresence(user) {
-    if (AppState.stompClient && AppState.stompClient.connected) {
+    if (AppState.stompClient && AppState.stompClient.connected && user) {
         AppState.stompClient.send('/app/presence/register', {}, JSON.stringify({
             userId: user.id,
             username: user.username
@@ -129,9 +142,9 @@ function subscribeToRoom(roomId) {
 // ================= Event Handlers =================
 function handlePresenceEvent(event) {
     if (event.eventType === 'USER_ONLINE') {
-        showToast(`${event.username} is now ONLINE`, 'NORMAL');
+        showToast(`${event.username} is now Online`, 'NORMAL');
     } else if (event.eventType === 'USER_OFFLINE') {
-        showToast(`${event.username} is now OFFLINE`, 'NORMAL');
+        showToast(`${event.username} went Offline`, 'NORMAL');
     }
     loadUsers();
     if (AppState.currentRoom) loadRoomMembers(AppState.currentRoom.id);
@@ -179,10 +192,7 @@ async function loadUsers() {
         const res = await fetch('/api/users');
         if (res.ok) {
             AppState.users = await res.json();
-            renderUserDropdown();
-            if (!AppState.currentUser && AppState.users.length > 0) {
-                switchUser(AppState.users[0].id);
-            }
+            renderAuthUsersList();
         }
     } catch (e) {
         console.error('Error loading users:', e);
@@ -264,7 +274,9 @@ async function loadRoomMessages(roomId, page, replace = false) {
 }
 
 async function joinActiveRoom() {
-    if (!AppState.currentRoom || !AppState.currentUser) return;
+    if (!requireUserLogin()) return;
+    if (!AppState.currentRoom) return;
+
     try {
         const res = await fetch(`/api/rooms/${AppState.currentRoom.id}/join/${AppState.currentUser.id}`, {
             method: 'POST'
@@ -283,7 +295,9 @@ async function joinActiveRoom() {
 }
 
 async function leaveActiveRoom() {
-    if (!AppState.currentRoom || !AppState.currentUser) return;
+    if (!requireUserLogin()) return;
+    if (!AppState.currentRoom) return;
+
     try {
         const res = await fetch(`/api/rooms/${AppState.currentRoom.id}/leave/${AppState.currentUser.id}`, {
             method: 'DELETE'
@@ -302,7 +316,8 @@ async function leaveActiveRoom() {
 }
 
 async function deleteActiveRoom() {
-    if (!AppState.currentRoom || !AppState.currentUser) return;
+    if (!requireUserLogin()) return;
+    if (!AppState.currentRoom) return;
     if (!confirm(`Are you sure you want to delete room "${AppState.currentRoom.name}"?`)) return;
 
     try {
@@ -326,9 +341,11 @@ async function deleteActiveRoom() {
 
 // ================= Message Actions =================
 function sendMessage() {
+    if (!requireUserLogin()) return;
+
     const input = document.getElementById('chatInput');
     const content = input.value.trim();
-    if (!content || !AppState.currentRoom || !AppState.currentUser) return;
+    if (!content || !AppState.currentRoom) return;
 
     const payload = {
         senderId: AppState.currentUser.id,
@@ -382,6 +399,7 @@ function sendStopTyping() {
 }
 
 async function editMessagePrompt(messageId, currentContent) {
+    if (!requireUserLogin()) return;
     const newContent = prompt('Edit your message:', currentContent);
     if (!newContent || newContent.trim() === '' || newContent === currentContent) return;
 
@@ -404,6 +422,7 @@ async function editMessagePrompt(messageId, currentContent) {
 }
 
 async function deleteMessagePrompt(messageId) {
+    if (!requireUserLogin()) return;
     if (!confirm('Are you sure you want to delete this message?')) return;
     try {
         const res = await fetch(`/api/messages/${messageId}?userId=${AppState.currentUser.id}`, {
@@ -418,52 +437,158 @@ async function deleteMessagePrompt(messageId) {
     }
 }
 
-// ================= UI Rendering =================
-function renderUserDropdown() {
-    const list = document.getElementById('userListDropdown');
-    list.innerHTML = '';
+// ================= Authentication & User Management =================
+function openAuthModal() {
+    renderAuthUsersList();
+    openModal('authModal');
+}
 
-    AppState.users.forEach(u => {
-        const item = document.createElement('div');
-        item.className = 'member-item';
-        item.style.cursor = 'pointer';
-        item.innerHTML = `
-            <div class="user-avatar">${u.username.substring(0, 2).toUpperCase()}</div>
-            <div class="member-info">
-                <div class="member-name">${u.username}</div>
-                <div style="font-size:0.7rem; color:var(--text-subtle);">${u.email}</div>
+function switchAuthTab(tab) {
+    const selectBtn = document.getElementById('tabSelectUserBtn');
+    const registerBtn = document.getElementById('tabRegisterUserBtn');
+    const selectContent = document.getElementById('authSelectTabContent');
+    const registerContent = document.getElementById('authRegisterTabContent');
+
+    if (tab === 'select') {
+        selectBtn.classList.add('active');
+        registerBtn.classList.remove('active');
+        selectContent.style.display = 'block';
+        registerContent.style.display = 'none';
+        renderAuthUsersList();
+    } else {
+        registerBtn.classList.add('active');
+        selectBtn.classList.remove('active');
+        selectContent.style.display = 'none';
+        registerContent.style.display = 'block';
+        setTimeout(() => document.getElementById('regUsername').focus(), 50);
+    }
+}
+
+function renderAuthUsersList(query = '') {
+    const container = document.getElementById('authExistingUsersList');
+    const noUsersNotice = document.getElementById('noUsersNotice');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const filtered = AppState.users.filter(u => {
+        if (!query) return true;
+        const q = query.toLowerCase();
+        return u.username.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+    });
+
+    if (filtered.length === 0) {
+        if (noUsersNotice) noUsersNotice.style.display = 'block';
+        return;
+    }
+
+    if (noUsersNotice) noUsersNotice.style.display = 'none';
+
+    filtered.forEach(u => {
+        const isCurrent = AppState.currentUser && AppState.currentUser.id === u.id;
+        const card = document.createElement('div');
+        card.className = 'user-select-card';
+        if (isCurrent) {
+            card.style.borderColor = 'var(--accent-primary)';
+            card.style.background = 'var(--accent-primary-light)';
+        }
+
+        const initials = u.username ? u.username.substring(0, 2).toUpperCase() : 'U';
+        card.innerHTML = `
+            <div class="user-avatar">${initials}</div>
+            <div style="flex:1; overflow:hidden;">
+                <div style="font-weight:600; font-size:0.88rem; color:var(--text-main);">${escapeHtml(u.username)} ${isCurrent ? '<span style="font-size:0.7rem; color:var(--accent-primary); font-weight:700;">(Active)</span>' : ''}</div>
+                <div style="font-size:0.75rem; color:var(--text-muted);">${escapeHtml(u.email)}</div>
             </div>
-            <span class="presence-dot ${u.status === 'ONLINE' ? '' : 'offline'}"></span>
+            <button class="btn-sm-action" style="${isCurrent ? 'background:var(--accent-primary); color:#fff; border-color:var(--accent-primary);' : ''}">${isCurrent ? 'Active' : 'Login'}</button>
         `;
-        item.onclick = () => {
+
+        card.onclick = () => {
             switchUser(u.id);
-            closeModal('userModal');
+            closeModal('authModal');
         };
-        list.appendChild(item);
+
+        container.appendChild(card);
     });
 }
 
-function switchUser(userId) {
+function filterUserList(query) {
+    renderAuthUsersList(query);
+}
+
+function switchUser(userId, showFeedback = true) {
     const user = AppState.users.find(u => u.id === userId);
     if (!user) return;
-    AppState.currentUser = user;
 
-    document.getElementById('currentUsername').textContent = user.username;
-    document.getElementById('currentUserAvatar').textContent = user.username.substring(0, 2).toUpperCase();
+    AppState.currentUser = user;
+    localStorage.setItem('chat_active_user_id', user.id);
+
+    const nameEl = document.getElementById('currentUsername');
+    const avatarEl = document.getElementById('currentUserAvatar');
+    const subtextEl = document.getElementById('currentUserSubtext');
+
+    if (nameEl) nameEl.textContent = user.username;
+    if (avatarEl) avatarEl.textContent = user.username.substring(0, 2).toUpperCase();
+    if (subtextEl) subtextEl.textContent = 'Active profile';
 
     registerPresence(user);
     if (AppState.currentRoom) {
         renderRoomActionButtons();
     }
-    showToast(`Switched active profile to ${user.username}`, 'NORMAL');
+
+    if (showFeedback) {
+        showToast(`Logged in as ${user.username}`, 'NORMAL');
+    }
 }
 
+async function handleRegisterUser(event) {
+    event.preventDefault();
+    const usernameInput = document.getElementById('regUsername');
+    const emailInput = document.getElementById('regEmail');
+    const username = usernameInput.value.trim();
+    const email = emailInput.value.trim();
+
+    if (!username || !email) return;
+
+    try {
+        const res = await fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, email })
+        });
+
+        if (res.ok) {
+            const newUser = await res.json();
+            showToast(`User ${newUser.username} registered successfully!`, 'NORMAL');
+            usernameInput.value = '';
+            emailInput.value = '';
+            closeModal('authModal');
+            await loadUsers();
+            switchUser(newUser.id, true);
+        } else {
+            const err = await res.json();
+            showToast(err.message, 'URGENT');
+        }
+    } catch (err) {
+        showToast(err.message, 'URGENT');
+    }
+}
+
+function requireUserLogin() {
+    if (!AppState.currentUser) {
+        showToast('Please select or register a user first', 'IMPORTANT');
+        openAuthModal();
+        return false;
+    }
+    return true;
+}
+
+// ================= UI Rendering =================
 function renderRoomsList() {
     const container = document.getElementById('roomListContainer');
     container.innerHTML = '';
 
     if (AppState.rooms.length === 0) {
-        container.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-subtle); font-size:0.85rem;">No rooms found</div>`;
+        container.innerHTML = `<div style="text-align:center; padding:24px 12px; color:var(--text-subtle); font-size:0.85rem;">No context rooms found</div>`;
         return;
     }
 
@@ -473,12 +598,12 @@ function renderRoomsList() {
         card.className = `room-card ${isActive ? 'active' : ''}`;
         card.innerHTML = `
             <div class="room-card-header">
-                <span class="room-card-title">${room.name}</span>
+                <span class="room-card-title">${escapeHtml(room.name)}</span>
                 <span class="room-type-tag tag-${room.roomType}">${room.roomType}</span>
             </div>
-            <div class="room-card-desc">${room.description || 'No description provided'}</div>
+            <div class="room-card-desc">${escapeHtml(room.description || 'No description provided')}</div>
             <div class="room-card-footer">
-                <span>By ${room.createdByName}</span>
+                <span>By ${escapeHtml(room.createdByName)}</span>
                 <span>👥 ${room.memberCount} members</span>
             </div>
         `;
@@ -502,7 +627,16 @@ function renderActiveRoomHeader() {
 function renderRoomActionButtons() {
     const actions = document.getElementById('chatHeaderActions');
     actions.innerHTML = '';
-    if (!AppState.currentRoom || !AppState.currentUser) return;
+    if (!AppState.currentRoom) return;
+
+    if (!AppState.currentUser) {
+        const joinBtn = document.createElement('button');
+        joinBtn.className = 'btn-sm-action';
+        joinBtn.textContent = 'Sign In to Join';
+        joinBtn.onclick = openAuthModal;
+        actions.appendChild(joinBtn);
+        return;
+    }
 
     const isMember = AppState.members.some(m => m.userId === AppState.currentUser.id && m.active);
     const isOwner = AppState.currentRoom.createdById === AppState.currentUser.id;
@@ -538,13 +672,18 @@ function renderMembersList() {
     list.innerHTML = '';
     document.getElementById('memberCountHeader').textContent = AppState.members.length;
 
+    if (AppState.members.length === 0) {
+        list.innerHTML = `<div style="text-align:center; padding:16px; color:var(--text-subtle); font-size:0.8rem;">No members in room</div>`;
+        return;
+    }
+
     AppState.members.forEach(m => {
         const item = document.createElement('div');
         item.className = 'member-item';
         item.innerHTML = `
-            <div class="user-avatar">${m.username.substring(0, 2).toUpperCase()}</div>
+            <div class="user-avatar">${(m.username || 'U').substring(0, 2).toUpperCase()}</div>
             <div class="member-info">
-                <div class="member-name">${m.username}</div>
+                <div class="member-name">${escapeHtml(m.username)}</div>
                 <span class="member-role">${m.role}</span>
             </div>
             <span class="presence-dot"></span>
@@ -578,7 +717,7 @@ function renderMessageItem(msg, append = true) {
         <div class="msg-avatar">${(msg.senderName || 'U').substring(0, 2).toUpperCase()}</div>
         <div class="msg-body">
             <div class="msg-header">
-                <span class="msg-sender">${msg.senderName}</span>
+                <span class="msg-sender">${escapeHtml(msg.senderName)}</span>
                 <span class="msg-time">${timeStr}</span>
                 <span class="priority-pill pill-${priority}">${priority}</span>
                 ${msg.edited ? '<span class="msg-edited-tag">(edited)</span>' : ''}
@@ -638,14 +777,8 @@ function renderSystemNotice(text) {
 
 function showTypingIndicator(username) {
     const bar = document.getElementById('typingIndicatorBar');
-    bar.innerHTML = `
-        <div class="typing-dots">
-            <span class="typing-dot"></span>
-            <span class="typing-dot"></span>
-            <span class="typing-dot"></span>
-        </div>
-        <span>${username} is typing...</span>
-    `;
+    const textEl = document.getElementById('typingIndicatorText');
+    if (textEl) textEl.textContent = `${username} is typing...`;
     bar.style.visibility = 'visible';
 }
 
@@ -674,7 +807,7 @@ function showToast(message, type = 'NORMAL') {
     setTimeout(() => {
         toast.style.opacity = '0';
         setTimeout(() => toast.remove(), 300);
-    }, 4000);
+    }, 3500);
 }
 
 function scrollToBottom() {
@@ -734,80 +867,61 @@ function initEventListeners() {
             handleTypingEvent();
         }
     });
+}
 
-    // Create User Form
-    document.getElementById('createUserForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const username = document.getElementById('newUsername').value.trim();
-        const email = document.getElementById('newEmail').value.trim();
+function openCreateRoomModal() {
+    if (!requireUserLogin()) return;
+    openModal('createRoomModal');
+}
 
-        try {
-            const res = await fetch('/api/users', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, email })
-            });
-            if (res.ok) {
-                const newUser = await res.json();
-                showToast(`Created user ${newUser.username}!`, 'NORMAL');
-                closeModal('createUserModal');
-                await loadUsers();
-                switchUser(newUser.id);
-            } else {
-                const err = await res.json();
-                showToast(err.message, 'URGENT');
-            }
-        } catch (err) {
+async function handleCreateRoom(e) {
+    e.preventDefault();
+    if (!requireUserLogin()) return;
+
+    const name = document.getElementById('newRoomName').value.trim();
+    const description = document.getElementById('newRoomDesc').value.trim();
+    const roomType = document.getElementById('newRoomType').value;
+
+    try {
+        const res = await fetch('/api/rooms', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                userId: AppState.currentUser.id,
+                name,
+                description,
+                roomType
+            })
+        });
+        if (res.ok) {
+            const newRoom = await res.json();
+            showToast(`Room "${newRoom.name}" created!`, 'NORMAL');
+            closeModal('createRoomModal');
+            document.getElementById('newRoomName').value = '';
+            document.getElementById('newRoomDesc').value = '';
+            await loadRooms();
+            selectRoom(newRoom.id);
+        } else {
+            const err = await res.json();
             showToast(err.message, 'URGENT');
         }
-    });
-
-    // Create Room Form
-    document.getElementById('createRoomForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        if (!AppState.currentUser) return showToast('Please select or create a user first', 'URGENT');
-
-        const name = document.getElementById('newRoomName').value.trim();
-        const description = document.getElementById('newRoomDesc').value.trim();
-        const roomType = document.getElementById('newRoomType').value;
-
-        try {
-            const res = await fetch('/api/rooms', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: AppState.currentUser.id,
-                    name,
-                    description,
-                    roomType
-                })
-            });
-            if (res.ok) {
-                const newRoom = await res.json();
-                showToast(`Room "${newRoom.name}" created!`, 'NORMAL');
-                closeModal('createRoomModal');
-                await loadRooms();
-                selectRoom(newRoom.id);
-            } else {
-                const err = await res.json();
-                showToast(err.message, 'URGENT');
-            }
-        } catch (err) {
-            showToast(err.message, 'URGENT');
-        }
-    });
+    } catch (err) {
+        showToast(err.message, 'URGENT');
+    }
 }
 
 function openModal(id) {
-    document.getElementById(id).classList.add('active');
+    const el = document.getElementById(id);
+    if (el) el.classList.add('active');
 }
 
 function closeModal(id) {
-    document.getElementById(id).classList.remove('active');
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('active');
 }
 
 function escapeHtml(text) {
     if (!text) return '';
     const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-    return text.replace(/[&<>"']/g, m => map[m]);
+    return text.toString().replace(/[&<>"']/g, m => map[m]);
 }
