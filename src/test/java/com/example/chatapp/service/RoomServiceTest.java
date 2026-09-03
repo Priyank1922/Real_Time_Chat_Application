@@ -219,14 +219,54 @@ class RoomServiceTest {
     }
 
     @Test
-    @DisplayName("Search rooms - returns filtered list")
-    void testSearchRooms() {
-        when(chatRoomRepository.searchRooms("Java", RoomType.STUDY)).thenReturn(List.of(sampleRoom));
+    @DisplayName("Search rooms - returns all rooms when search and roomType are null")
+    void testGetRooms_AllRooms() {
+        when(chatRoomRepository.findByActiveTrue()).thenReturn(List.of(sampleRoom));
+        when(roomMemberRepository.countByRoomIdAndActiveTrue(10L)).thenReturn(3L);
+
+        List<RoomResponse> rooms = roomService.getRooms(null, null);
+
+        assertEquals(1, rooms.size());
+        assertEquals(3L, rooms.get(0).getMemberCount());
+        verify(chatRoomRepository).findByActiveTrue();
+    }
+
+    @Test
+    @DisplayName("Search rooms - filter by room type only")
+    void testGetRooms_FilterByRoomType() {
+        when(chatRoomRepository.findByRoomTypeAndActiveTrue(RoomType.STUDY)).thenReturn(List.of(sampleRoom));
+        when(roomMemberRepository.countByRoomIdAndActiveTrue(10L)).thenReturn(3L);
+
+        List<RoomResponse> rooms = roomService.getRooms(null, RoomType.STUDY);
+
+        assertEquals(1, rooms.size());
+        assertEquals(3L, rooms.get(0).getMemberCount());
+        verify(chatRoomRepository).findByRoomTypeAndActiveTrue(RoomType.STUDY);
+    }
+
+    @Test
+    @DisplayName("Search rooms - filter by search term only")
+    void testGetRooms_FilterBySearchTerm() {
+        when(chatRoomRepository.searchByTerm("Java")).thenReturn(List.of(sampleRoom));
+        when(roomMemberRepository.countByRoomIdAndActiveTrue(10L)).thenReturn(3L);
+
+        List<RoomResponse> rooms = roomService.getRooms("Java", null);
+
+        assertEquals(1, rooms.size());
+        assertEquals(3L, rooms.get(0).getMemberCount());
+        verify(chatRoomRepository).searchByTerm("Java");
+    }
+
+    @Test
+    @DisplayName("Search rooms - filter by search term and room type")
+    void testGetRooms_FilterBySearchAndRoomType() {
+        when(chatRoomRepository.searchByTermAndRoomType("Java", RoomType.STUDY)).thenReturn(List.of(sampleRoom));
         when(roomMemberRepository.countByRoomIdAndActiveTrue(10L)).thenReturn(3L);
 
         List<RoomResponse> rooms = roomService.getRooms("Java", RoomType.STUDY);
 
         assertEquals(1, rooms.size());
         assertEquals(3L, rooms.get(0).getMemberCount());
+        verify(chatRoomRepository).searchByTermAndRoomType("Java", RoomType.STUDY);
     }
 }

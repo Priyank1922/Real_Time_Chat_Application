@@ -95,9 +95,22 @@ public class RoomService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = CacheConfig.ROOMS_CACHE, key = "'all_' + #search + '_' + #roomType")
+    @Cacheable(value = CacheConfig.ROOMS_CACHE, key = "'all_' + (#search != null ? #search : '') + '_' + (#roomType != null ? #roomType : '')")
     public List<RoomResponse> getRooms(String search, RoomType roomType) {
-        List<ChatRoom> rooms = chatRoomRepository.searchRooms(search, roomType);
+        boolean hasSearch = search != null && !search.trim().isEmpty();
+        String cleanSearch = hasSearch ? search.trim() : null;
+
+        List<ChatRoom> rooms;
+        if (cleanSearch == null && roomType == null) {
+            rooms = chatRoomRepository.findByActiveTrue();
+        } else if (cleanSearch == null) {
+            rooms = chatRoomRepository.findByRoomTypeAndActiveTrue(roomType);
+        } else if (roomType == null) {
+            rooms = chatRoomRepository.searchByTerm(cleanSearch);
+        } else {
+            rooms = chatRoomRepository.searchByTermAndRoomType(cleanSearch, roomType);
+        }
+
         return rooms.stream()
                 .map(room -> {
                     long count = roomMemberRepository.countByRoomIdAndActiveTrue(room.getId());

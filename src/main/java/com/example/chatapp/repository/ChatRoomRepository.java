@@ -22,8 +22,20 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
     List<ChatRoom> findByNameContainingIgnoreCaseAndActiveTrue(String name);
 
     @Query("SELECT r FROM ChatRoom r WHERE r.active = true " +
+           "AND (LOWER(r.name) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) " +
+           "     OR LOWER(r.description) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')))")
+    List<ChatRoom> searchByTerm(@Param("search") String search);
+
+    @Query("SELECT r FROM ChatRoom r WHERE r.active = true " +
+           "AND r.roomType = :roomType " +
+           "AND (LOWER(r.name) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) " +
+           "     OR LOWER(r.description) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')))")
+    List<ChatRoom> searchByTermAndRoomType(@Param("search") String search, @Param("roomType") RoomType roomType);
+
+    @Query("SELECT r FROM ChatRoom r WHERE r.active = true " +
            "AND (:roomType IS NULL OR r.roomType = :roomType) " +
-           "AND (:search IS NULL OR LOWER(r.name) LIKE LOWER(CONCAT('%', :search, '%')) " +
-           "     OR LOWER(r.description) LIKE LOWER(CONCAT('%', :search, '%')))")
+           "AND (:search IS NULL OR :search = '' " +
+           "     OR LOWER(r.name) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) " +
+           "     OR LOWER(r.description) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')))")
     List<ChatRoom> searchRooms(@Param("search") String search, @Param("roomType") RoomType roomType);
 }
